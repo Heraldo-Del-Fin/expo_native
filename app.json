@@ -6,10 +6,16 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "exponative",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Esta aplicación necesita acceso a tu ubicación para mostrar el clima de tu área."
+      },
+      "config": {
+        "googleMapsApiKey": ""
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -19,7 +25,16 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": ""
+        }
+      }
     },
     "web": {
       "output": "static",
@@ -43,6 +58,9 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "OPENWEATHER_API_KEY": "1bf8844badbd0bb228b57e8d43c13eeb"
     }
   }
 }

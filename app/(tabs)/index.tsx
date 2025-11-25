@@ -1,98 +1,149 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
-
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { View, StyleSheet, ActivityIndicator, RefreshControl, Alert } from 'react-native';
+import { ScrollView } from 'react-native';
+import Animated, { FadeInDown, FadeIn } from 'react-native-reanimated';
+import WeatherCard from '@/components/weather/weather-card';
+import WeeklyChart from '@/components/charts/weekly-chart';
+import Alerts from '@/components/alerts/Alerts';
+import { fetchWeather } from '@/services/mockWeather';
+import { getSavedLocation } from '@/services/locationService';
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useFocusEffect } from 'expo-router';
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  const [weather, setWeather] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? 'light'];
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  useEffect(() => { load() }, []);
+
+  // Reload when screen comes into focus (in case location was changed)
+  useFocusEffect(
+    React.useCallback(() => {
+      load();
+    }, [])
+  );
+
+  async function load() {
+    setLoading(true);
+    try {
+      const savedLocation = await getSavedLocation();
+      let location: any;
+
+      if (savedLocation) {
+        console.log('Using saved location:', savedLocation);
+        if (savedLocation.type === 'coords' && savedLocation.coords) {
+          location = savedLocation.coords;
+        } else if (savedLocation.type === 'city' && savedLocation.city) {
+          location = savedLocation.city;
+        }
+      }
+
+      // Fallback to San Bernardo del Viento if no location saved
+      if (!location) {
+        console.log('No saved location, using default: San Bernardo del Viento');
+        location = { lat: 9.44872, lon: -75.84347 };
+      }
+
+      console.log('Fetching weather for:', location);
+      const w = await fetchWeather(location);
+      setWeather(w);
+      
+      // Check if we're showing mock data (means API failed)
+      if (w.location.includes('Datos de ejemplo')) {
+        Alert.alert(
+          'Aviso',
+          'No se pudo obtener el clima real. Mostrando datos de ejemplo.\n\nVerifica:\n- Tu conexión a internet\n- Que la ubicación sea válida',
+          [{ text: 'OK' }]
+        );
+      }
+    } catch (e: any) {
+      console.error('Error in load():', e);
+      Alert.alert(
+        'Error',
+        'No se pudo cargar el clima. Revisa tu conexión a internet.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const onRefresh = React.useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const savedLocation = await getSavedLocation();
+      let location: any;
+
+      if (savedLocation) {
+        if (savedLocation.type === 'coords' && savedLocation.coords) {
+          location = savedLocation.coords;
+        } else if (savedLocation.type === 'city' && savedLocation.city) {
+          location = savedLocation.city;
+        }
+      }
+
+      if (!location) {
+        location = { lat: 9.44872, lon: -75.84347 };
+      }
+
+      const w = await fetchWeather(location);
+      setWeather(w);
+    } catch (e) {
+      console.warn(e);
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  return (
+    <ScrollView
+      contentContainerStyle={[styles.container, { backgroundColor: colors.background }]}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onRefresh}
+          tintColor={colors.tint}
+          colors={[colors.tint]}
+        />
+      }
+    >
+      {loading && !weather ? (
+        <Animated.View entering={FadeIn} style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color={colors.tint} />
+        </Animated.View>
+      ) : weather ? (
+        <View style={styles.inner}>
+          <Animated.View entering={FadeInDown.delay(100).duration(600)}>
+            <WeatherCard weather={weather} />
+          </Animated.View>
+          <Animated.View entering={FadeInDown.delay(200).duration(600)}>
+            <Alerts weather={weather} />
+          </Animated.View>
+          <Animated.View entering={FadeInDown.delay(300).duration(600)}>
+            <WeeklyChart data={weather.weeklyForecast} />
+          </Animated.View>
+        </View>
+      ) : null}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  container: {
+    minHeight: '100%',
+  },
+  inner: {
+    padding: 12,
+    paddingBottom: 40,
+  },
+  loaderContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 8,
-  },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+    paddingTop: 80,
   },
 });
