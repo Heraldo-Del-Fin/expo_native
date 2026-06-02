@@ -60,7 +60,7 @@
       "reactCompiler": true
     },
     "extra": {
-      "OPENWEATHER_API_KEY": "1bf8844badbd0bb228b57e8d43c13eeb"
+      "OPENWEATHER_API_KEY": api_key_weather
     }
   }
 }
